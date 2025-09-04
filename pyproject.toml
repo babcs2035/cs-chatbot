@@ -1,0 +1,22 @@
+[project]
+name = "cs-chatbot"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = "==3.11.13"
+dependencies = [
+    "beautifulsoup4>=4.13.5",
+    "fastapi>=0.116.1",
+    "jq>=1.10.0",
+    "langchain>=0.3.27",
+    "langchain-chroma>=0.2.5",
+    "langchain-community>=0.3.29",
+    "langchain-ollama>=0.3.7",
+    "langchain-text-splitters>=0.3.11",
+    "ollama>=0.5.3",
+    "pydantic-settings>=2.10.1",
+    "requests>=2.32.5",
+    "sentence-transformers>=5.1.0",
+    "tqdm>=4.67.1",
+    "uvicorn>=0.35.0",
+]

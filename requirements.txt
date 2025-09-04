@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+langchain
+langchain-community
+langchain-chroma
+langchain-text-splitters
+ollama
+beautifulsoup4
+requests
+sentence-transformers
+pydantic-settings
+tqdm
+jq
+langchain-ollama

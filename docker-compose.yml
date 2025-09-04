@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+    fastapi-app:
+        build: .
+        container_name: rag_chatbot_api
+        ports:
+            - "8000:8000"
+        volumes:
+            - ./data:/app/data
+            - ./chroma_db:/app/chroma_db
+        depends_on:
+            - ollama
+        environment:
+            # Ollamaサービスへの接続先をコンテナ名で指定
+            - OLLAMA_HOST=ollama
+        networks:
+            - rag_network
+
+    ollama:
+        image: ollama/ollama
+        container_name: ollama_service
+        ports:
+            - "11434:11434"
+        volumes:
+            - ollama_data:/root/.ollama
+        # VPSがNVIDIA GPUを搭載している場合は以下のデプロイ設定を有効化
+        # deploy:
+        #   resources:
+        #     reservations:
+        #       devices:
+        #         - driver: nvidia
+        #           count: 1
+        #           capabilities: [gpu]
+        networks:
+            - rag_network
+
+volumes:
+    ollama_data:
+
+networks:
+    rag_network:
+        driver: bridge
+
