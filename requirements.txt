@@ -12,3 +12,5 @@ pydantic-settings
 tqdm
 jq
 langchain-ollama
+langchain-chroma
+sentence-transformers

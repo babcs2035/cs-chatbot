@@ -18,20 +18,19 @@ services:
             - rag_network
 
     ollama:
-        image: ollama/ollama
+        image: docker.io/ollama/ollama
         container_name: ollama_service
         ports:
             - "11434:11434"
         volumes:
             - ollama_data:/root/.ollama
-        # VPSがNVIDIA GPUを搭載している場合は以下のデプロイ設定を有効化
-        # deploy:
-        #   resources:
-        #     reservations:
-        #       devices:
-        #         - driver: nvidia
-        #           count: 1
-        #           capabilities: [gpu]
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                    count: 1
+                    capabilities: [gpu]
         networks:
             - rag_network
 
