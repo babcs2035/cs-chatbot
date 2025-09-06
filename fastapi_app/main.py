@@ -11,6 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 # --- モジュールインポート ---
 # rag_handlerは起動時に初期化され、ベクトルDBなどをメモリに読み込む
 from rag_handler import rag_handler_instance
+
 # scraperは/scrapeエンドポイントでのみ使用する
 from scraper import crawl_website
 
@@ -18,28 +19,38 @@ from scraper import crawl_website
 app = FastAPI(
     title="RAG Chatbot API",
     description="ローカルLLMとRAG（Retrieval-Augmented Generation）を使用したチャットボットAPIです。`/docs`から対話的なAPIドキュメントを利用できます。",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # --- データモデル定義 (Pydantic) ---
 # APIが受け取るリクエストボディの型を定義
 
+
 class ChatQuery(BaseModel):
-    """ /chat エンドポイントのリクエストボディ """
+    """/chat エンドポイントのリクエストボディ"""
+
     question: str
 
+
 class ScrapeRequest(BaseModel):
-    """ /scrape エンドポイントのリクエストボディ """
+    """/scrape エンドポイントのリクエストボディ"""
+
     urls: list[str]
 
+
 # --- APIエンドポイント定義 ---
+
 
 @app.get("/", summary="ヘルスチェック")
 async def root():
     """
     APIサーバーが正常に起動しているかを確認するためのシンプルなエンドポイント。
     """
-    return {"status": "ok", "message": "API is running. Please head to /docs to test the endpoints."}
+    return {
+        "status": "ok",
+        "message": "API is running. Please head to /docs to test the endpoints.",
+    }
+
 
 @app.post("/chat", summary="チャットボットに質問を送信")
 async def chat_endpoint(query: ChatQuery):
@@ -48,17 +59,20 @@ async def chat_endpoint(query: ChatQuery):
     """
     try:
         # rag_handlerのメソッド名を `query` から `ask` に修正
-        response = rag_handler_instance.ask(query.question)
-        
+        response = await rag_handler_instance.ask(query.question)
+
         # rag_handler内でエラーが発生した場合の処理
         if "error" in response:
             raise HTTPException(status_code=500, detail=response["error"])
-        
+
         # 回答とソースドキュメントを含む完全なレスポンスを返すように修正
         return response
     except Exception as e:
         # 予期せぬエラーが発生した場合
-        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"An unexpected error occurred: {str(e)}"
+        )
+
 
 @app.post("/scrape", summary="Webサイトをスクレイピングして知識ベースを構築")
 async def scrape_endpoint(request: ScrapeRequest):
@@ -68,15 +82,17 @@ async def scrape_endpoint(request: ScrapeRequest):
     """
     if not request.urls:
         raise HTTPException(status_code=400, detail="URL list cannot be empty.")
-    
+
     try:
         print("🚀 Starting web scraping...")
-        crawl_website(request.urls) # scraper.pyの関数を実行
-        
+        crawl_website(request.urls)  # scraper.pyの関数を実行
+
         print("🔄 Re-initializing RAG handler with new data...")
         # 新しく生成されたデータでRAGハンドラを再初期化
         rag_handler_instance._initialize()
-        
+
         return {"message": "Scraping and knowledge base update completed successfully."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to scrape or re-initialize: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to scrape or re-initialize: {str(e)}"
+        )
