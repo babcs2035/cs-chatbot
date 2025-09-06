@@ -1,2 +1,4 @@
 [tools]
+node = "24.7.0"
+pnpm = "10.15.1"
 python = "3.11"

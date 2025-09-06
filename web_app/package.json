@@ -1,0 +1,32 @@
+{
+  "name": "cs-chatbot",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "lint": "pnpm biome lint ./src",
+    "format": "pnpm biome format --write ./src",
+    "check": "pnpm biome check --write --unsafe ./src",
+    "type-check": "pnpm tsc --noEmit"
+  },
+  "volta": {
+    "node": "24.7.0",
+    "pnpm": "10.15.1"
+  },
+  "dependencies": {
+    "next": "15.5.2",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-markdown": "^10.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.2.0",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

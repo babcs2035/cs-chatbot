@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import sys
 
@@ -20,6 +21,15 @@ app = FastAPI(
     title="RAG Chatbot API",
     description="ローカルLLMとRAG（Retrieval-Augmented Generation）を使用したチャットボットAPIです。`/docs`から対話的なAPIドキュメントを利用できます。",
     version="1.0.0",
+)
+
+# CORS (Cross-Origin Resource Sharing) の設定
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- データモデル定義 (Pydantic) ---
