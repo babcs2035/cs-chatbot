@@ -2,11 +2,12 @@
 node = "24.7.0"
 pnpm = "10.15.1"
 python = "3.11.13"
+uv = "0.8.15"
 
 [tasks.setup]
 run = [
 	"uv venv --clear",
-	"source .venv/bin/activate",
+	". .venv/bin/activate",
 	"uv pip install -r requirements.txt",
 	"pnpm install --dir web_app"
 ]
@@ -20,5 +21,6 @@ run = [
 
 [tasks.deploy]
 run = [
-  "docker compose up --build -d"
+  "docker compose up --build -d",
+  "cd web_app && pnpm build && pm2 start pm2.config.cjs --update-env"
 ]

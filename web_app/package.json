@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "next build --turbopack",
+    "start": "next start",
     "lint": "pnpm biome lint ./src",
     "format": "pnpm biome format --write ./src",
     "check": "pnpm biome check --write --unsafe ./src",

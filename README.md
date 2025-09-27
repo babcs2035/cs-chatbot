@@ -46,9 +46,6 @@ mise run deploy
 
 ## 開発方法
 
-
-### 開発コマンド一覧 (mise)
-
 | コマンド        | 内容                                       |
 | --------------- | ------------------------------------------ |
 | mise run setup  | フロントエンド依存パッケージインストール   |
@@ -60,10 +57,9 @@ mise run deploy
 
 ## デプロイ
 
-### Docker Compose (推奨) 
-
 ```bash
-docker compose up --build -d
+mise run setup
+mise run deploy
 ```
 
 ## 使い方
@@ -79,14 +75,13 @@ docker compose up --build -d
 
 ```
 cs-chatbot/
-├── fastapi_app/      # FastAPI バックエンド (RAG，スクレイピング，ベクトルDB) 
-├── web_app/          # Next.js フロントエンド (チャット UI) 
-├── db/               # ChromaDB ベクトルデータベース
-├── data/             # スクレイピングデータ
-├── cache/            # 埋め込み・LLM キャッシュ
-├── requirements.txt  # Python 依存パッケージ
-├── Dockerfile        # バックエンド Docker ビルド
-├── docker-compose.yml# サービス構成
-├── pyproject.toml    # Python プロジェクト設定
-└── README.md         # このファイル
-```
+├── fastapi_app/        # FastAPI バックエンド (RAG，スクレイピング，ベクトルDB) 
+├── web_app/            # Next.js フロントエンド (チャット UI) 
+├── db/                 # ChromaDB ベクトルデータベース
+├── data/               # スクレイピングデータ
+├── cache/              # 埋め込み・LLM キャッシュ
+├── requirements.txt    # Python 依存パッケージ
+├── Dockerfile          # バックエンド Docker ビルド
+├── docker-compose.yml  # サービス構成
+├── pyproject.toml      # Python プロジェクト設定
+└── README.md           # このファイル
