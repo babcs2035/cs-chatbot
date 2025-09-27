@@ -49,7 +49,7 @@ export default function ChatPage() {
     {
       id: 0,
       role: "bot",
-      text: "こんにちは！東京大学の情報システムについて，何でも質問してください．\n\nまずは，上のボタンから知識ベースを構築・更新してください．",
+      text: "こんにちは！東京大学の情報システムについて，何でも質問してください．",
     },
   ]);
   const [input, setInput] = useState("");
@@ -74,7 +74,7 @@ export default function ChatPage() {
     setScrapeStatus("スクレイピングと知識ベースの構築を開始します... (数分かかる場合があります)");
     setError(null);
     try {
-      const response = await fetch("http://localhost:8000/scrape", {
+      const response = await fetch("http://localhost:8100/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -109,7 +109,7 @@ export default function ChatPage() {
     setError(null);
 
     try {
-      const response = await fetch("http://localhost:8000/chat", {
+      const response = await fetch("http://localhost:8100/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: userMessage.text }),

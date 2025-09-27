@@ -5,15 +5,16 @@ services:
         build: .
         container_name: rag_chatbot_api
         ports:
-            - "8000:8000"
+            - "8100:8100"
         volumes:
+            - ./cache:/app/cache
             - ./data:/app/data
-            - ./chroma_db:/app/chroma_db
+            - ./db:/app/db
         depends_on:
             - ollama
         environment:
-            # Ollamaサービスへの接続先をコンテナ名で指定
             - OLLAMA_HOST=ollama
+            - OLLAMA_BASE_URL=http://ollama:11434
         networks:
             - rag_network
 
@@ -24,13 +25,8 @@ services:
             - "11434:11434"
         volumes:
             - ollama_data:/root/.ollama
-        deploy:
-            resources:
-                reservations:
-                    devices:
-                        - driver: nvidia
-                    count: 1
-                    capabilities: [gpu]
+        environment:
+            - NVIDIA_VISIBLE_DEVICES=all
         networks:
             - rag_network
 
@@ -40,4 +36,3 @@ volumes:
 networks:
     rag_network:
         driver: bridge
-

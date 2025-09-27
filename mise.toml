@@ -1,4 +1,24 @@
 [tools]
 node = "24.7.0"
 pnpm = "10.15.1"
-python = "3.11"
+python = "3.11.13"
+
+[tasks.setup]
+run = [
+	"uv venv --clear",
+	"source .venv/bin/activate",
+	"uv pip install -r requirements.txt",
+	"pnpm install --dir web_app"
+]
+
+[tasks.dev]
+run = [
+  "docker compose up -d ollama",
+  "uvicorn fastapi_app.main:app --reload --port 8100 &",
+  "cd web_app && pnpm dev"
+]
+
+[tasks.deploy]
+run = [
+  "docker compose up --build -d"
+]
