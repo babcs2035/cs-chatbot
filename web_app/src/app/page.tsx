@@ -74,7 +74,7 @@ export default function ChatPage() {
     setScrapeStatus("スクレイピングと知識ベースの構築を開始します... (数分かかる場合があります)");
     setError(null);
     try {
-      const response = await fetch("http://localhost:8100/scrape", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/scrape`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -109,7 +109,7 @@ export default function ChatPage() {
     setError(null);
 
     try {
-      const response = await fetch("http://localhost:8100/chat", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: userMessage.text }),

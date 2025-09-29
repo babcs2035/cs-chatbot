@@ -15,6 +15,7 @@ run = [
 [tasks.dev]
 run = [
   "docker compose up -d ollama",
+	". .venv/bin/activate",
   "uvicorn fastapi_app.main:app --reload --port 8100 &",
   "cd web_app && pnpm dev"
 ]
