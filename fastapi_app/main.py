@@ -1,108 +1,117 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
 import os
 import sys
+import uuid
+import asyncio
+from fastapi import FastAPI, HTTPException, BackgroundTasks
+from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
-# --- パス設定 ---
-# スクリプトの実行場所に関わらず、このファイルがあるディレクトリをPythonパスに追加
-# これにより、'scraper'や'rag_handler'のようなローカルモジュールを安定してインポートできる
+# ローカルモジュールをインポートするためのパス設定
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-# --- モジュールインポート ---
-# rag_handlerは起動時に初期化され、ベクトルDBなどをメモリに読み込む
 from rag_handler import rag_handler_instance
-
-# scraperは/scrapeエンドポイントでのみ使用する
 from scraper import crawl_website
 
 # --- FastAPIアプリケーションの初期化 ---
 app = FastAPI(
-    title="RAG Chatbot API",
-    description="ローカルLLMとRAG（Retrieval-Augmented Generation）を使用したチャットボットAPIです。`/docs`から対話的なAPIドキュメントを利用できます。",
-    version="1.0.0",
+    title="Advanced RAG Chatbot API",
+    description="長時間処理に対応した非同期タスク方式のRAGチャットボットAPIです。",
+    version="2.0.0",
 )
 
-# CORS (Cross-Origin Resource Sharing) の設定
+# フロントエンドからのリクエストを許可するためのCORS設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://ktak.dev", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# --- 非同期タスクの管理 ---
+# バックグラウンドで実行されるタスクの状態と結果を保存するインメモリ辞書
+# key: task_id, value: {"status": "running" | "completed" | "failed", "result": ...}
+tasks = {}
+
+
+def run_rag_task(task_id: str, query: str):
+    """バックグラウンドでRAG処理を実行し、結果をtasks辞書に保存するワーカー関数。"""
+    try:
+        # rag_handler.askは非同期関数のため、新しいイベントループで実行
+        result = asyncio.run(rag_handler_instance.ask(query))
+        tasks[task_id] = {"status": "completed", "result": result}
+    except Exception as e:
+        tasks[task_id] = {"status": "failed", "result": {"error": str(e)}}
+
+
 # --- データモデル定義 (Pydantic) ---
-# APIが受け取るリクエストボディの型を定義
-
-
 class ChatQuery(BaseModel):
-    """/chat エンドポイントのリクエストボディ"""
+    """質問リクエストのボディ"""
 
     question: str
 
 
 class ScrapeRequest(BaseModel):
-    """/scrape エンドポイントのリクエストボディ"""
+    """スクレイピングリクエストのボディ"""
 
     urls: list[str]
 
 
+class ChatTaskResponse(BaseModel):
+    """チャットタスク開始時のレスポンス"""
+
+    task_id: str
+
+
 # --- APIエンドポイント定義 ---
-
-
 @app.get("/", summary="ヘルスチェック")
 async def root():
+    """APIサーバーの稼働状況を確認する。"""
+    return {"status": "ok", "message": "API is running."}
+
+
+@app.post(
+    "/chat/start", summary="チャット処理タスクを開始", response_model=ChatTaskResponse
+)
+async def start_chat_task(query: ChatQuery, background_tasks: BackgroundTasks):
     """
-    APIサーバーが正常に起動しているかを確認するためのシンプルなエンドポイント。
+    時間のかかるRAG処理をバックグラウンドタスクとして開始し、即座にタスクIDを返す。
     """
-    return {
-        "status": "ok",
-        "message": "API is running. Please head to /docs to test the endpoints.",
-    }
+    if not query.question:
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+
+    task_id = str(uuid.uuid4())
+    tasks[task_id] = {"status": "running", "result": None}
+    background_tasks.add_task(run_rag_task, task_id, query.question)
+
+    return {"task_id": task_id}
 
 
-@app.post("/chat", summary="チャットボットに質問を送信")
-async def chat_endpoint(query: ChatQuery):
+@app.get("/chat/status/{task_id}", summary="チャット処理タスクの状況と結果を取得")
+async def get_chat_status(task_id: str):
     """
-    ユーザーからの質問を受け取り、知識ベースを基に生成された回答を返します。
+    指定されたタスクIDの現在の状態（実行中、完了、失敗）と、完了している場合はその結果を返す。
     """
-    try:
-        # rag_handlerのメソッド名を `query` から `ask` に修正
-        response = await rag_handler_instance.ask(query.question)
+    task = tasks.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found.")
 
-        # rag_handler内でエラーが発生した場合の処理
-        if "error" in response:
-            raise HTTPException(status_code=500, detail=response["error"])
+    # 完了または失敗していれば、メモリからタスク情報を削除する
+    if task["status"] in ["completed", "failed"]:
+        return tasks.pop(task_id)
 
-        # 回答とソースドキュメントを含む完全なレスポンスを返すように修正
-        return response
-    except Exception as e:
-        # 予期せぬエラーが発生した場合
-        raise HTTPException(
-            status_code=500, detail=f"An unexpected error occurred: {str(e)}"
-        )
+    return task
 
 
-@app.post("/scrape", summary="Webサイトをスクレイピングして知識ベースを構築")
+@app.post("/scrape", summary="知識ベースを構築")
 async def scrape_endpoint(request: ScrapeRequest):
     """
-    指定されたURLリストをスクレイピングし、チャットボットの知識ベースを構築または更新します。
-    この処理は時間がかかることがあります。完了後、RAGシステムは新しいデータで再初期化されます。
+    指定されたURLをスクレイピングし、知識ベースを更新する。（この処理は同期的に実行されます）
     """
     if not request.urls:
         raise HTTPException(status_code=400, detail="URL list cannot be empty.")
-
     try:
-        print("🚀 Starting web scraping...")
-        crawl_website(request.urls)  # scraper.pyの関数を実行
-
-        print("🔄 Re-initializing RAG handler with new data...")
-        # 新しく生成されたデータでRAGハンドラを再初期化
+        crawl_website(request.urls)
         rag_handler_instance._initialize()
-
         return {"message": "Scraping and knowledge base update completed successfully."}
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to scrape or re-initialize: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to scrape: {str(e)}")

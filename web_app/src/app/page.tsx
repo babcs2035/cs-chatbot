@@ -4,37 +4,30 @@ import { useState, useRef, useEffect, FormEvent } from "react";
 import ReactMarkdown from "react-markdown";
 
 // --- 型定義 ---
-// チャットのメッセージ一件を表す型
 type Message = {
   id: number;
   role: "user" | "bot";
   text: string;
-  sources?: string[]; // ボットの回答にのみ含まれる参照元URLのリスト
+  sources?: string[];
 };
 
 // --- アイコンコンポーネント ---
-// アイコンをインラインSVGとして定義することで，外部依存をなくします
 const SendIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="m22 2-7 20-4-9-9-4Z" />
     <path d="M22 2 11 13" />
   </svg>
 );
-
 const BotIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 8V4H8" />
-    <rect width="16" height="12" x="4" y="8" rx="2" />
-    <path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
+    <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" />
   </svg>
 );
-
 const UserIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
   </svg>
 );
-
 const LinkIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72" />
@@ -44,13 +37,8 @@ const LinkIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 // --- メインコンポーネント ---
 export default function ChatPage() {
-  // --- 状態管理 ---
   const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 0,
-      role: "bot",
-      text: "こんにちは！東京大学の情報システムについて，何でも質問してください．",
-    },
+    { id: 0, role: "bot", text: "こんにちは！東京大学の情報システムについて、何でも質問してください。\n\nまずは、上のボタンから知識ベースを構築・更新してください。" },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -59,35 +47,31 @@ export default function ChatPage() {
   const [scrapeStatus, setScrapeStatus] = useState<string | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 新しいメッセージが追加されたら，チャットの表示を一番下までスクロールする
   useEffect(() => {
-    chatContainerRef.current?.scrollTo({
-      top: chatContainerRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  // --- イベントハンドラ ---
+  // コンポーネントがアンマウントされる際にポーリングを停止
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
   const handleScrape = async () => {
     setIsScraping(true);
     setScrapeStatus("スクレイピングと知識ベースの構築を開始します... (数分かかる場合があります)");
     setError(null);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/scrape`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          urls: [
-            "https://utelecon.adm.u-tokyo.ac.jp/",
-            "https://www.sodan.ecc.u-tokyo.ac.jp/",
-          ],
-        }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls: ["https://utelecon.adm.u-tokyo.ac.jp/", "https://www.sodan.ecc.u-tokyo.ac.jp/"] }),
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "スクレイピングに失敗しました．");
-      }
+      if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || "スクレイピングに失敗しました。"); }
       const result = await response.json();
       setScrapeStatus(`✅ ${result.message}`);
     } catch (err: any) {
@@ -96,6 +80,45 @@ export default function ChatPage() {
     } finally {
       setIsScraping(false);
     }
+  };
+
+  const pollForResult = (taskId: string) => {
+    // 既存のポーリングがあれば停止
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const statusResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/status/${taskId}`);
+        if (!statusResponse.ok) {
+          throw new Error("タスク状況の取得に失敗しました。");
+        }
+
+        const data = await statusResponse.json();
+
+        if (data.status === "completed") {
+          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+          const botMessage: Message = {
+            id: Date.now() + 1,
+            role: "bot",
+            text: data.result.answer,
+            sources: data.result.source_documents,
+          };
+          setMessages((prev) => [...prev, botMessage]);
+          setIsLoading(false);
+        } else if (data.status === "failed") {
+          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+          setError(`回答の生成に失敗しました: ${data.result.error || '不明なエラー'}`);
+          setIsLoading(false);
+        }
+        // statusが "running" の場合はポーリングを継続
+      } catch (err: any) {
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+        setError(err.message);
+        setIsLoading(false);
+      }
+    }, 3000); // 3秒ごとにステータスを確認
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -109,43 +132,41 @@ export default function ChatPage() {
     setError(null);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
+      // 1. バックエンドにタスク開始を要求し、task_idを取得
+      const startResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: userMessage.text }),
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "APIからの応答エラーです．");
+
+      if (!startResponse.ok) {
+        const errorData = await startResponse.json();
+        throw new Error(errorData.detail || "チャットタスクの開始に失敗しました。");
       }
-      const data = await response.json();
-      const botMessage: Message = {
-        id: Date.now() + 1,
-        role: "bot",
-        text: data.answer,
-        sources: data.source_documents,
-      };
-      setMessages((prev) => [...prev, botMessage]);
+
+      const { task_id } = await startResponse.json();
+
+      // 2. 受け取ったtask_idで結果のポーリングを開始
+      pollForResult(task_id);
+
     } catch (err: any) {
       setError(err.message);
-    } finally {
       setIsLoading(false);
     }
   };
 
-  // --- レンダリング ---
   return (
     <div className="flex flex-col h-screen bg-gray-900 text-white font-sans">
       <header className="p-4 border-b border-gray-700 shadow-md bg-gray-800">
         <h1 className="text-xl font-bold text-center text-gray-200">
-          cs-chatbot
+          東京大学 情報システム RAG Chatbot
         </h1>
       </header>
 
       <div className="p-4 bg-gray-800 border-b border-gray-700 text-center">
         <button
           onClick={handleScrape}
-          disabled={isScraping}
+          disabled={isScraping || isLoading}
           className="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:bg-indigo-900 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
         >
           {isScraping ? "知識ベースを構築中..." : "知識ベースを構築/更新"}
@@ -173,13 +194,7 @@ export default function ChatPage() {
                     {msg.sources.map((source, index) => (
                       <li key={index} className="text-sm flex items-center gap-2">
                         <LinkIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                        <a
-                          href={source}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-cyan-500 hover:text-cyan-400 hover:underline truncate"
-                          title={source}
-                        >
+                        <a href={source} target="_blank" rel="noopener noreferrer" className="text-cyan-500 hover:text-cyan-400 hover:underline truncate" title={source}>
                           {source}
                         </a>
                       </li>
@@ -195,10 +210,11 @@ export default function ChatPage() {
           <div className="flex items-start gap-4">
             <BotIcon className="w-8 h-8 flex-shrink-0 text-indigo-400 animate-pulse" />
             <div className="rounded-xl p-4 bg-gray-800">
-              <div className="flex items-center space-x-2">
+              <p className="text-gray-400 text-sm">回答を生成中です。これには1〜2分かかることがあります...</p>
+              <div className="flex items-center space-x-2 mt-2">
                 <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse"></div>
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse delay-75"></div>
-                <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse delay-150"></div>
+                <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse [animation-delay:0.2s]"></div>
+                <div className="w-2 h-2 bg-gray-500 rounded-full animate-pulse [animation-delay:0.4s]"></div>
               </div>
             </div>
           </div>
@@ -214,11 +230,11 @@ export default function ChatPage() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="質問を入力してください..."
             className="flex-1 p-3 bg-gray-700 rounded-l-lg border-none focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder-gray-400"
-            disabled={isLoading}
+            disabled={isLoading || isScraping}
           />
           <button
             type="submit"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || isScraping || !input.trim()}
             className="p-3 bg-indigo-600 rounded-r-lg hover:bg-indigo-700 disabled:bg-indigo-900 disabled:cursor-not-allowed transition-colors"
           >
             <SendIcon className="w-6 h-6" />
